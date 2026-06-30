@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from datetime import datetime
 from api.db.database import get_db
 from api.db.models import AQIReading, Station
 from api.schemas.aqi_schema import AQIGeoJSON, TimeSeriesResponse, NationalSummary
@@ -17,10 +18,16 @@ async def get_aqi_spatial(
     date: str = Query(default="2024-10-15", description="YYYY-MM-DD"),
     db: AsyncSession = Depends(get_db)
 ):
+    # Convert string to date
+    try:
+        query_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
     result = await db.execute(
         select(AQIReading, Station, ST_X(Station.location), ST_Y(Station.location))
         .join(Station, AQIReading.station_id == Station.id)
-        .where(AQIReading.date == date)
+        .where(AQIReading.date == query_date)
     )
     rows = result.all()
 
@@ -56,14 +63,21 @@ async def get_timeseries(
     end:   str = Query(default="2024-11-30"),
     db:    AsyncSession = Depends(get_db)
 ):
+    # Convert strings to date
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
     result = await db.execute(
         select(AQIReading, Station)
         .join(Station, AQIReading.station_id == Station.id)
         .where(
             and_(
                 Station.city == city,
-                AQIReading.date >= start,
-                AQIReading.date <= end,
+                AQIReading.date >= start_date,
+                AQIReading.date <= end_date,
             )
         )
         .order_by(AQIReading.date)
@@ -87,10 +101,16 @@ async def get_national_summary(
     date: str = Query(default="2024-10-15"),
     db:   AsyncSession = Depends(get_db)
 ):
+    # Convert string to date
+    try:
+        query_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
     result = await db.execute(
         select(AQIReading, Station)
         .join(Station, AQIReading.station_id == Station.id)
-        .where(AQIReading.date == date)
+        .where(AQIReading.date == query_date)
         .order_by(AQIReading.aqi_predicted.desc())
     )
     rows = result.all()
@@ -114,6 +134,7 @@ async def get_national_summary(
         "top_5_polluted":  top5,
         "category_counts": category_counts,
     }
+
 
 @router.post("/ingest",
              summary="Trigger OpenAQ ground station data ingestion")

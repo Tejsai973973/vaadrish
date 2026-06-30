@@ -6,6 +6,7 @@ from api.db.models import FireEvent, HCHOReading
 from api.schemas.fire_schema import FirePoint, CorrelationResponse
 from geoalchemy2.functions import ST_X, ST_Y
 from datetime import date as date_type
+from datetime import datetime
 from pathlib import Path
 import numpy as np
 from scipy import stats
@@ -22,9 +23,16 @@ async def get_fire_points(
     end:   str = Query(default="2024-11-30"),
     db:    AsyncSession = Depends(get_db)
 ):
+    # Convert strings to date
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
     result = await db.execute(
         select(FireEvent, ST_X(FireEvent.location), ST_Y(FireEvent.location))
-        .where(and_(FireEvent.date >= start, FireEvent.date <= end))
+        .where(and_(FireEvent.date >= start_date, FireEvent.date <= end_date))
         .order_by(FireEvent.date)
     )
     rows = result.all()
@@ -49,13 +57,20 @@ async def get_fire_hcho_correlation(
     end:   str = Query(default="2024-11-30"),
     db:    AsyncSession = Depends(get_db)
 ):
+    # Convert strings to date
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
     fire_result = await db.execute(
         select(FireEvent.date, FireEvent.frp)
-        .where(and_(FireEvent.date >= start, FireEvent.date <= end))
+        .where(and_(FireEvent.date >= start_date, FireEvent.date <= end_date))
     )
     hcho_result = await db.execute(
         select(HCHOReading.date, HCHOReading.hcho_value)
-        .where(and_(HCHOReading.date >= start, HCHOReading.date <= end))
+        .where(and_(HCHOReading.date >= start_date, HCHOReading.date <= end_date))
     )
 
     fire_rows = fire_result.all()
@@ -95,6 +110,7 @@ async def get_fire_hcho_correlation(
         "scatter_data":  scatter,
         "best_lag_days": 1,
     }
+
 
 @router.post("/ingest",
              summary="Trigger NASA FIRMS fire data ingestion")
