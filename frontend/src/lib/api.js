@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000'
+const API_BASE = 'http://localhost:8001'
 
 export const api = {
   aqi: {
@@ -22,6 +22,6 @@ export const api = {
     metrics: () => `${API_BASE}/api/model/metrics`,
   },
   ws: {
-    live: 'ws://localhost:8000/ws/live',
+    live: 'ws://localhost:8001/ws/live',
   },
 }

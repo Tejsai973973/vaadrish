@@ -23,7 +23,7 @@ export default function useWebSocket() {
         }
 
         // Create new connection
-        ws.current = new WebSocket('ws://localhost:8000/ws/live')
+        ws.current = new WebSocket('ws://localhost:8001/ws/live')
 
         ws.current.onopen = () => {
           if (isMounted.current) {
